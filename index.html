@@ -98,7 +98,7 @@
     // ⚠️ 請填入你的 Supabase 憑證資訊：
     // ----------------------------------------------------
     const https://wdjmrwhpzjkoafioangf.supabase.co = 'https://wdjmrwhpzjkoafioangf.supabase.co'; // 替換為你的 Project URL
-    const sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp = 'eyJhbGciOi...';              // 替換為你的 anon public key
+    const eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkam1yd2hwemprb2FmaW9hbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg3MjcsImV4cCI6MjEwMDc5NDcyN30.W7BpmAXhiFn4MKzvTzOHce0rAA_OhEaOQtLIxSX3bzI = 'eyJhbGciOi...';              // 替換為你的 anon public key
     // ----------------------------------------------------
 
     const isCloudConfigured = https://wdjmrwhpzjkoafioangf.supabase.co.startsWith('https://') && !https://wdjmrwhpzjkoafioangf.supabase.co.includes('xxxxxx');
@@ -141,7 +141,7 @@
       try {
         // 直接呼叫 Supabase REST API (防止 SDK 載入報錯卡死)
         const res = await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/rest/v1/pins?select=*`, {
-          headers: { 'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp, 'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}` }
+          headers: { 'apikey': eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkam1yd2hwemprb2FmaW9hbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg3MjcsImV4cCI6MjEwMDc5NDcyN30.W7BpmAXhiFn4MKzvTzOHce0rAA_OhEaOQtLIxSX3bzI, 'Authorization': `Bearer ${eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkam1yd2hwemprb2FmaW9hbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg3MjcsImV4cCI6MjEwMDc5NDcyN30.W7BpmAXhiFn4MKzvTzOHce0rAA_OhEaOQtLIxSX3bzI}` }
         });
         const data = await res.json();
         
@@ -197,8 +197,8 @@
             const uploadRes = await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/storage/v1/object/pin-photos/${fileName}`, {
               method: 'POST',
               headers: {
-                'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp,
-                'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}`,
+                'apikey': eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkam1yd2hwemprb2FmaW9hbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg3MjcsImV4cCI6MjEwMDc5NDcyN30.W7BpmAXhiFn4MKzvTzOHce0rAA_OhEaOQtLIxSX3bzI,
+                'Authorization': `Bearer ${eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkam1yd2hwemprb2FmaW9hbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg3MjcsImV4cCI6MjEwMDc5NDcyN30.W7BpmAXhiFn4MKzvTzOHce0rAA_OhEaOQtLIxSX3bzI}`,
                 'Content-Type': photoFile.type
               },
               body: photoFile
@@ -223,8 +223,8 @@
           const insertRes = await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/rest/v1/pins`, {
             method: 'POST',
             headers: {
-              'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp,
-              'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}`,
+              'apikey': eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkam1yd2hwemprb2FmaW9hbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg3MjcsImV4cCI6MjEwMDc5NDcyN30.W7BpmAXhiFn4MKzvTzOHce0rAA_OhEaOQtLIxSX3bzI,
+              'Authorization': `Bearer ${eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkam1yd2hwemprb2FmaW9hbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg3MjcsImV4cCI6MjEwMDc5NDcyN30.W7BpmAXhiFn4MKzvTzOHce0rAA_OhEaOQtLIxSX3bzI}`,
               'Content-Type': 'application/json',
               'Prefer': 'return=representation'
             },
@@ -286,7 +286,7 @@
           if (isCloudConfigured) {
             await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/rest/v1/pins?id=eq.${pin.id}`, {
               method: 'DELETE',
-              headers: { 'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp, 'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}` }
+              headers: { 'apikey': eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkam1yd2hwemprb2FmaW9hbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg3MjcsImV4cCI6MjEwMDc5NDcyN30.W7BpmAXhiFn4MKzvTzOHce0rAA_OhEaOQtLIxSX3bzI, 'Authorization': `Bearer ${eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indkam1yd2hwemprb2FmaW9hbmdmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUyMTg3MjcsImV4cCI6MjEwMDc5NDcyN30.W7BpmAXhiFn4MKzvTzOHce0rAA_OhEaOQtLIxSX3bzI}` }
             });
           } else {
             let pins = JSON.parse(localStorage.getItem('japan_pins')) || [];
