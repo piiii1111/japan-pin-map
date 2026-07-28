@@ -204,7 +204,16 @@
               body: photoFile
             });
 
-            if (!uploadRes.ok) throw new Error("照片上傳失敗，請確認 Storage 桶名稱為 pin-photos 且設為 Public");
+            if (!uploadRes.ok) {
+              let detail = '';
+              try {
+                const errJson = await uploadRes.json();
+                detail = errJson.message || errJson.error || JSON.stringify(errJson);
+              } catch (e) {
+                detail = await uploadRes.text().catch(() => '');
+              }
+              throw new Error(`照片上傳失敗 (狀態碼: ${uploadRes.status})：${detail}`);
+            }
 
             photoPublicUrl = `${SUPABASE_URL}/storage/v1/object/public/pin-photos/${fileName}`;
           }
@@ -228,7 +237,8 @@
             renderMarker({ id: newPin.id, address: newPin.address, lat: newPin.lat, lng: newPin.lng, photo: newPin.photo_url });
             map.flyTo([lat, lon], 12);
           } else {
-            throw new Error("資料庫寫入失敗，請確認pins資料表權限");
+            const detail = insertedData.message || insertedData.error || JSON.stringify(insertedData);
+            throw new Error(`資料庫寫入失敗 (狀態碼: ${insertRes.status})：${detail}`);
           }
 
         } else {
