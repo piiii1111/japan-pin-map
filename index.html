@@ -98,7 +98,7 @@
     // ⚠️ 請填入你的 Supabase 憑證資訊：
     // ----------------------------------------------------
     const SUPABASE_URL = 'https://wdjmrwhpzjkoafioangf.supabase.co'; // 替換為你的 Project URL
-    const sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp = 'sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp';              // 替換為你的 anon public key
+    const sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp = 'eyJhbGciOi...';              // 替換為你的 anon public key
     // ----------------------------------------------------
 
     const isCloudConfigured = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('xxxxxx');
@@ -192,7 +192,10 @@
           // B1. 上傳相片到 Supabase Storage
           if (photoFile) {
             btn.innerText = "照片上傳雲端中...";
-            const fileName = `${Date.now()}_${photoFile.name}`;
+            // 只取副檔名，避免原始檔名含中文、空白等字元導致 Supabase 拒絕（Invalid key）
+            const extMatch = photoFile.name.match(/\.[0-9a-zA-Z]+$/);
+            const ext = extMatch ? extMatch[0] : '.jpg';
+            const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
             
             const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/pin-photos/${fileName}`, {
               method: 'POST',
