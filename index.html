@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>日本景點別針收藏地圖</title>
   
+  <!-- 強制放行地圖圖片與 Supabase 請求，防止 Cloudflare CSP 阻擋 -->
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <style>
     html, body {
-      height: 100%;
-      width: 100%;
+      height: 100% !important;
+      width: 100% !important;
       margin: 0;
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -43,7 +46,13 @@
     }
     button:hover { background-color: #c9302c; }
 
-    #map { flex: 1; height: 100%; width: 100%; background-color: #aad3df; }
+    #map { 
+      flex: 1; 
+      height: 100vh !important; 
+      width: 100% !important; 
+      background-color: #f0f0f0; 
+    }
+
     .popup-card { text-align: center; max-width: 200px; }
     .popup-card h4 { margin: 5px 0 8px 0; color: #333; }
     .popup-card img { width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
@@ -74,92 +83,83 @@
       <input type="file" id="photoInput" accept="image/*" />
     </div>
 
-    <button id="addPinBtn">搜尋並新增至地圖</button>
+    <button id="addPinBtn">搜尋並上傳至雲端</button>
 
-    <div id="statusNotice" class="status-badge status-local">💻 目前模式：本機儲存</div>
+    <div id="statusNotice" class="status-badge status-local">檢查雲端連線中...</div>
   </div>
 
   <div id="map"></div>
 
-  <!-- 載入 Leaflet 與 Supabase SDK -->
+  <!-- 僅引入 Leaflet 地圖套件 -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <script>
     // ----------------------------------------------------
-    // ⚠️ 如果要連線 Supabase，請把下面兩行替換成你的專案憑證：
+    // ⚠️ 請填入你的 Supabase 憑證資訊：
     // ----------------------------------------------------
-    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-    const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    const https://wdjmrwhpzjkoafioangf.supabase.co = 'https://xxxxxx.supabase.co'; // 替換為你的 Project URL
+    const sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp = 'eyJhbGciOi...';              // 替換為你的 anon public key
     // ----------------------------------------------------
 
-    let supabase = null;
-    let isCloudMode = false;
+    const isCloudConfigured = https://wdjmrwhpzjkoafioangf.supabase.co.startsWith('https://') && !https://wdjmrwhpzjkoafioangf.supabase.co.includes('xxxxxx');
 
-    // 1. 初始化 Leaflet 地圖
+    // 1. 初始化 Leaflet 地圖 (Esri 底圖，安定性最高)
     const map = L.map('map', {
       center: [36.2048, 138.2529],
       zoom: 6
     });
 
-    // 使用極高相容性的 CARTO Voyager 底圖（防止被封鎖）
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
-      subdomains: 'abcd',
-      maxZoom: 19
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri',
+      maxZoom: 18
     }).addTo(map);
 
-    // 強制重新計算地圖容器大小，確保陸地載入
-    setTimeout(() => { map.invalidateSize(); }, 300);
+    window.addEventListener('load', () => {
+      setTimeout(() => { map.invalidateSize(); }, 300);
+    });
 
-    // 2. 檢查 Supabase 狀態
-    function checkSystemStatus() {
-      const noticeDiv = document.getElementById('statusNotice');
-      
-      if (typeof window.supabase !== 'undefined' && SUPABASE_URL.startsWith('https://') && SUPABASE_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
-        try {
-          supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-          isCloudMode = true;
-          noticeDiv.className = "status-badge status-cloud";
-          noticeDiv.innerHTML = "☁️ 模式：<b>雲端同步 (Supabase)</b>";
-        } catch (e) {
-          console.warn("Supabase 連線失敗:", e);
-        }
-      }
-
-      if (!isCloudMode) {
-        noticeDiv.className = "status-badge status-local";
-        noticeDiv.innerHTML = "💻 模式：<b>本機暫存 (LocalStorage)</b><br><small>尚未設定 Supabase 憑證</small>";
-      }
+    // 更新狀態 UI
+    const noticeDiv = document.getElementById('statusNotice');
+    if (isCloudConfigured) {
+      noticeDiv.className = "status-badge status-cloud";
+      noticeDiv.innerHTML = "☁️ 模式：<b>Supabase 雲端同步中</b>";
+    } else {
+      noticeDiv.className = "status-badge status-local";
+      noticeDiv.innerHTML = "⚠️ 提示：未填寫 Supabase 憑證，目前切換為本機模式。";
     }
 
-    checkSystemStatus();
+    // 2. 載入 Pins
     loadPins();
 
-    // 3. 載入地圖標記
     async function loadPins() {
-      if (isCloudMode) {
-        try {
-          const { data, error } = await supabase.from('pins').select('*');
-          if (!error && data) {
-            data.forEach(pin => renderMarker({
-              id: pin.id,
-              address: pin.address,
-              lat: pin.lat,
-              lng: pin.lng,
-              photo: pin.photo_url
-            }));
-            return;
-          }
-        } catch (e) { console.error("讀取失敗:", e); }
+      if (!isCloudConfigured) {
+        let pins = JSON.parse(localStorage.getItem('japan_pins')) || [];
+        pins.forEach(pin => renderMarker(pin));
+        return;
       }
 
-      // 本機讀取模式
-      let pins = JSON.parse(localStorage.getItem('japan_pins')) || [];
-      pins.forEach(pin => renderMarker(pin));
+      try {
+        // 直接呼叫 Supabase REST API (防止 SDK 載入報錯卡死)
+        const res = await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/rest/v1/pins?select=*`, {
+          headers: { 'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp, 'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}` }
+        });
+        const data = await res.json();
+        
+        if (Array.isArray(data)) {
+          data.forEach(pin => renderMarker({
+            id: pin.id,
+            address: pin.address,
+            lat: pin.lat,
+            lng: pin.lng,
+            photo: pin.photo_url
+          }));
+        }
+      } catch (err) {
+        console.error("雲端讀取失敗:", err);
+      }
     }
 
-    // 4. 新增 Pin
+    // 3. 新增 Pin
     document.getElementById('addPinBtn').addEventListener('click', async () => {
       const address = document.getElementById('addressInput').value.trim();
       const photoFile = document.getElementById('photoInput').files[0];
@@ -170,74 +170,91 @@
       }
 
       const btn = document.getElementById('addPinBtn');
-      btn.innerText = "搜尋座標中...";
+      btn.innerText = "處理中...";
       btn.disabled = true;
 
       try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
-        const data = await response.json();
+        // A. 地址轉座標 (Geocoding)
+        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+        const geoData = await geoRes.json();
 
-        if (!data || data.length === 0) {
+        if (!geoData || geoData.length === 0) {
           alert("找不到該地址！");
           return;
         }
 
-        const lat = parseFloat(data[0].lat);
-        const lon = parseFloat(data[0].lon);
-        let photoUrl = "";
+        const lat = parseFloat(geoData[0].lat);
+        const lon = parseFloat(geoData[0].lon);
+        let photoPublicUrl = "";
 
-        if (isCloudMode) {
+        // B. 處理雲端模式
+        if (isCloudConfigured) {
+          // B1. 上傳相片到 Supabase Storage
           if (photoFile) {
-            btn.innerText = "上傳照片至雲端...";
+            btn.innerText = "照片上傳雲端中...";
             const fileName = `${Date.now()}_${photoFile.name}`;
-            const { error: uploadError } = await supabase.storage.from('pin-photos').upload(fileName, photoFile);
-            if (uploadError) throw uploadError;
+            
+            const uploadRes = await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/storage/v1/object/pin-photos/${fileName}`, {
+              method: 'POST',
+              headers: {
+                'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp,
+                'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}`,
+                'Content-Type': photoFile.type
+              },
+              body: photoFile
+            });
 
-            const { data: urlData } = supabase.storage.from('pin-photos').getPublicUrl(fileName);
-            photoUrl = urlData.publicUrl;
+            if (!uploadRes.ok) throw new Error("照片上傳失敗，請確認 Storage 桶名稱為 pin-photos 且設為 Public");
+
+            photoPublicUrl = `${https://wdjmrwhpzjkoafioangf.supabase.co}/storage/v1/object/public/pin-photos/${fileName}`;
           }
 
-          btn.innerText = "寫入資料庫...";
-          const { data: insertData, error: insertError } = await supabase
-            .from('pins')
-            .insert([{ address, lat, lng: lon, photo_url: photoUrl }])
-            .select();
-
-          if (insertError) throw insertError;
-
-          renderMarker({
-            id: insertData[0].id,
-            address: insertData[0].address,
-            lat: insertData[0].lat,
-            lng: insertData[0].lng,
-            photo: insertData[0].photo_url
+          // B2. 寫入 Supabase 表格
+          btn.innerText = "儲存座標資料中...";
+          const insertRes = await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/rest/v1/pins`, {
+            method: 'POST',
+            headers: {
+              'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp,
+              'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=representation'
+            },
+            body: JSON.stringify({ address: address, lat: lat, lng: lon, photo_url: photoPublicUrl })
           });
 
-        } else {
-          if (photoFile) {
-            photoUrl = await convertBase64(photoFile);
+          const insertedData = await insertRes.json();
+          if (insertRes.ok && insertedData.length > 0) {
+            const newPin = insertedData[0];
+            renderMarker({ id: newPin.id, address: newPin.address, lat: newPin.lat, lng: newPin.lng, photo: newPin.photo_url });
+            map.flyTo([lat, lon], 12);
+          } else {
+            throw new Error("資料庫寫入失敗，請確認pins資料表權限");
           }
 
-          const newPin = { id: Date.now(), address, lat, lng: lon, photo: photoUrl };
+        } else {
+          // 本機保護模式
+          if (photoFile) photoPublicUrl = await convertBase64(photoFile);
+          const newPin = { id: Date.now(), address, lat, lng: lon, photo: photoPublicUrl };
           let pins = JSON.parse(localStorage.getItem('japan_pins')) || [];
           pins.push(newPin);
           localStorage.setItem('japan_pins', JSON.stringify(pins));
           renderMarker(newPin);
+          map.flyTo([lat, lon], 12);
         }
 
-        map.flyTo([lat, lon], 12);
         document.getElementById('addressInput').value = '';
         document.getElementById('photoInput').value = '';
 
       } catch (err) {
-        console.error("錯誤:", err);
-        alert("新增失敗，請檢查網路連線。");
+        console.error(err);
+        alert(`錯誤: ${err.message || '連線失敗'}`);
       } finally {
-        btn.innerText = "搜尋並新增至地圖";
+        btn.innerText = "搜尋並上傳至雲端";
         btn.disabled = false;
       }
     });
 
+    // 渲染 Pin
     function renderMarker(pin) {
       const marker = L.marker([pin.lat, pin.lng]).addTo(map);
       const popupDiv = document.createElement('div');
@@ -256,8 +273,11 @@
 
       popupDiv.querySelector('.delete-btn').addEventListener('click', async () => {
         if (confirm("確定要刪除嗎？")) {
-          if (isCloudMode) {
-            await supabase.from('pins').delete().eq('id', pin.id);
+          if (isCloudConfigured) {
+            await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/rest/v1/pins?id=eq.${pin.id}`, {
+              method: 'DELETE',
+              headers: { 'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp, 'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}` }
+            });
           } else {
             let pins = JSON.parse(localStorage.getItem('japan_pins')) || [];
             pins = pins.filter(p => p.id !== pin.id);
