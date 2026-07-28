@@ -97,11 +97,11 @@
     // ----------------------------------------------------
     // ⚠️ 請填入你的 Supabase 憑證資訊：
     // ----------------------------------------------------
-    const https://wdjmrwhpzjkoafioangf.supabase.co = 'https://xxxxxx.supabase.co'; // 替換為你的 Project URL
-    const sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp = 'eyJhbGciOi...';              // 替換為你的 anon public key
+    const SUPABASE_URL = 'https://wdjmrwhpzjkoafioangf.supabase.co'; // 替換為你的 Project URL
+    const SUPABASE_KEY = 'eyJhbGciOi...';              // 替換為你的 anon public key
     // ----------------------------------------------------
 
-    const isCloudConfigured = https://wdjmrwhpzjkoafioangf.supabase.co.startsWith('https://') && !https://wdjmrwhpzjkoafioangf.supabase.co.includes('xxxxxx');
+    const isCloudConfigured = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('xxxxxx');
 
     // 1. 初始化 Leaflet 地圖 (Esri 底圖，安定性最高)
     const map = L.map('map', {
@@ -140,8 +140,8 @@
 
       try {
         // 直接呼叫 Supabase REST API (防止 SDK 載入報錯卡死)
-        const res = await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/rest/v1/pins?select=*`, {
-          headers: { 'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp, 'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}` }
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/pins?select=*`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
         });
         const data = await res.json();
         
@@ -194,11 +194,11 @@
             btn.innerText = "照片上傳雲端中...";
             const fileName = `${Date.now()}_${photoFile.name}`;
             
-            const uploadRes = await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/storage/v1/object/pin-photos/${fileName}`, {
+            const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/pin-photos/${fileName}`, {
               method: 'POST',
               headers: {
-                'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp,
-                'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}`,
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
                 'Content-Type': photoFile.type
               },
               body: photoFile
@@ -206,16 +206,16 @@
 
             if (!uploadRes.ok) throw new Error("照片上傳失敗，請確認 Storage 桶名稱為 pin-photos 且設為 Public");
 
-            photoPublicUrl = `${https://wdjmrwhpzjkoafioangf.supabase.co}/storage/v1/object/public/pin-photos/${fileName}`;
+            photoPublicUrl = `${SUPABASE_URL}/storage/v1/object/public/pin-photos/${fileName}`;
           }
 
           // B2. 寫入 Supabase 表格
           btn.innerText = "儲存座標資料中...";
-          const insertRes = await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/rest/v1/pins`, {
+          const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/pins`, {
             method: 'POST',
             headers: {
-              'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp,
-              'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}`,
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
               'Content-Type': 'application/json',
               'Prefer': 'return=representation'
             },
@@ -274,9 +274,9 @@
       popupDiv.querySelector('.delete-btn').addEventListener('click', async () => {
         if (confirm("確定要刪除嗎？")) {
           if (isCloudConfigured) {
-            await fetch(`${https://wdjmrwhpzjkoafioangf.supabase.co}/rest/v1/pins?id=eq.${pin.id}`, {
+            await fetch(`${SUPABASE_URL}/rest/v1/pins?id=eq.${pin.id}`, {
               method: 'DELETE',
-              headers: { 'apikey': sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp, 'Authorization': `Bearer ${sb_publishable_W8XGrhhPrJPhTIu6WgOLrg_gqkuseGp}` }
+              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
             });
           } else {
             let pins = JSON.parse(localStorage.getItem('japan_pins')) || [];
