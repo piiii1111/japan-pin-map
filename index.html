@@ -66,69 +66,9 @@
     }
     .status-cloud { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
     .status-local { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
-
-    /* 手機版選單開關按鈕（預設隱藏，只在小螢幕顯示） */
-    #menuToggleBtn {
-      display: none;
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      z-index: 1100;
-      width: 44px;
-      height: 44px;
-      padding: 0;
-      background-color: #ffffff;
-      color: #2c3e50;
-      border: none;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-      font-size: 1.3rem;
-      cursor: pointer;
-      align-items: center;
-      justify-content: center;
-    }
-
-    /* 遮罩層，點擊可收合選單 */
-    #sidebarOverlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 999;
-    }
-
-    @media (max-width: 768px) {
-      #menuToggleBtn {
-        display: flex;
-      }
-
-      #sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        height: 100%;
-        transform: translateX(-100%);
-        transition: transform 0.25s ease-in-out;
-        box-shadow: 4px 0 12px rgba(0,0,0,0.2);
-      }
-
-      #sidebar.open {
-        transform: translateX(0);
-      }
-
-      #sidebar.open ~ #sidebarOverlay {
-        display: block;
-      }
-
-      #map {
-        width: 100% !important;
-      }
-    }
   </style>
 </head>
 <body>
-
-  <button id="menuToggleBtn" aria-label="開啟選單">☰</button>
 
   <div id="sidebar">
     <h2>📍 日本別針收藏地圖</h2>
@@ -147,8 +87,6 @@
 
     <div id="statusNotice" class="status-badge status-local">檢查雲端連線中...</div>
   </div>
-
-  <div id="sidebarOverlay"></div>
 
   <div id="map"></div>
 
@@ -179,26 +117,6 @@
     window.addEventListener('load', () => {
       setTimeout(() => { map.invalidateSize(); }, 300);
     });
-
-    // 手機版選單開合邏輯
-    const sidebarEl = document.getElementById('sidebar');
-    const menuToggleBtn = document.getElementById('menuToggleBtn');
-    const sidebarOverlay = document.getElementById('sidebarOverlay');
-
-    function openSidebar() {
-      sidebarEl.classList.add('open');
-      menuToggleBtn.innerText = '✕';
-    }
-    function closeSidebar() {
-      sidebarEl.classList.remove('open');
-      menuToggleBtn.innerText = '☰';
-      setTimeout(() => { map.invalidateSize(); }, 260);
-    }
-
-    menuToggleBtn.addEventListener('click', () => {
-      sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar();
-    });
-    sidebarOverlay.addEventListener('click', closeSidebar);
 
     // 更新狀態 UI
     const noticeDiv = document.getElementById('statusNotice');
@@ -340,9 +258,6 @@
         document.getElementById('addressInput').value = '';
         document.getElementById('photoInput').value = '';
 
-        // 手機版：新增成功後自動收合選單，方便看到剛新增的地圖標記
-        if (window.innerWidth <= 768) closeSidebar();
-
       } catch (err) {
         console.error(err);
         alert(`錯誤: ${err.message || '連線失敗'}`);
@@ -372,10 +287,20 @@
       popupDiv.querySelector('.delete-btn').addEventListener('click', async () => {
         if (confirm("確定要刪除嗎？")) {
           if (isCloudConfigured) {
-            await fetch(`${SUPABASE_URL}/rest/v1/pins?id=eq.${pin.id}`, {
-              method: 'DELETE',
-              headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-            });
+            try {
+              const delRes = await fetch(`${SUPABASE_URL}/rest/v1/pins?id=eq.${pin.id}`, {
+                method: 'DELETE',
+                headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+              });
+              if (!delRes.ok) {
+                const detail = await delRes.text().catch(() => '');
+                alert(`刪除失敗 (狀態碼: ${delRes.status})：${detail || '請確認 pins 資料表已設定 DELETE 權限 (RLS policy)'}`);
+                return; // 刪除失敗時不移除地圖上的標記，避免畫面與資料庫不一致
+              }
+            } catch (err) {
+              alert(`刪除失敗：${err.message || '連線錯誤'}`);
+              return;
+            }
           } else {
             let pins = JSON.parse(localStorage.getItem('japan_pins')) || [];
             pins = pins.filter(p => p.id !== pin.id);
