@@ -210,6 +210,8 @@
       zoom: 6,
       zoomControl: false
     });
+    const allPinsBounds = L.latLngBounds([]);
+    let loadedPinCount = 0;
 
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
@@ -319,6 +321,7 @@
       if (!isCloudConfigured) {
         let pins = JSON.parse(localStorage.getItem('japan_pins')) || [];
         pins.forEach(pin => renderMarker(pin));
+        fitMapToAllPins();
         return;
       }
 
@@ -337,6 +340,7 @@
             lng: pin.lng,
             photo: pin.photo_url
           }));
+          fitMapToAllPins();
         }
       } catch (err) {
         console.error("雲端讀取失敗:", err);
@@ -483,6 +487,13 @@
 
     // 渲染 Pin
     function renderMarker(pin) {
+      const pinLat = Number(pin.lat);
+      const pinLng = Number(pin.lng);
+      if (!Number.isFinite(pinLat) || !Number.isFinite(pinLng)) return;
+
+      allPinsBounds.extend([pinLat, pinLng]);
+      loadedPinCount += 1;
+
       const pinIcon = L.divIcon({
         className: '',
         html: '<div class="pin-marker" aria-hidden="true"></div>',
@@ -490,7 +501,7 @@
         iconAnchor: [11, 11],
         popupAnchor: [0, -15]
       });
-      const marker = L.marker([pin.lat, pin.lng], { icon: pinIcon, title: pin.address }).addTo(map);
+      const marker = L.marker([pinLat, pinLng], { icon: pinIcon, title: pin.address }).addTo(map);
       const popupDiv = document.createElement('div');
       popupDiv.className = 'popup-card';
       
@@ -544,6 +555,27 @@
       });
 
       marker.bindPopup(popupDiv);
+    }
+
+    // 首次載入完成後，自動顯示所有已收藏的 Pin。
+    // 例如目前同時涵蓋台灣與日本；未來加入歐洲後，會自動擴大至歐洲—日本。
+    function fitMapToAllPins() {
+      if (!allPinsBounds.isValid() || loadedPinCount === 0) return;
+
+      setTimeout(() => {
+        map.invalidateSize();
+
+        if (loadedPinCount === 1) {
+          map.setView(allPinsBounds.getCenter(), 8, { animate: false });
+          return;
+        }
+
+        map.fitBounds(allPinsBounds, {
+          padding: [42, 42],
+          maxZoom: 9,
+          animate: false
+        });
+      }, 80);
     }
 
     async function readPhotoGps(file) {
