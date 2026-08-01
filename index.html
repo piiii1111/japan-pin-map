@@ -170,8 +170,8 @@
     <p class="sidebar-copy">把旅途中收藏的徽章，留在它真正屬於的位置。</p>
     
     <div class="form-group">
-      <label for="addressInput">景點名稱或地址：</label>
-      <input type="text" id="addressInput" placeholder="例如：東京鐵塔 或 清水寺..." />
+      <label for="addressInput">景點名稱或地址（選填）：</label>
+      <input type="text" id="addressInput" placeholder="留白時會使用照片定位" />
     </div>
 
     <div class="form-group">
@@ -190,8 +190,9 @@
 
   <div id="map"></div>
 
-  <!-- 僅引入 Leaflet 地圖套件 -->
+  <!-- Leaflet 地圖套件＋照片 EXIF 讀取套件 -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/exifr@7.1.3/dist/lite.umd.js"></script>
 
   <script>
     // ----------------------------------------------------
@@ -248,11 +249,14 @@
     const photoStatus = document.getElementById('photoStatus');
     let processedPhotoFile = null;
     let photoProcessingPromise = Promise.resolve(null);
+    let photoGpsPromise = Promise.resolve(null);
+    let photoProcessingError = null;
     let previewObjectUrl = '';
 
     photoInput.addEventListener('change', () => {
       const sourceFile = photoInput.files[0];
       processedPhotoFile = null;
+      photoProcessingError = null;
 
       if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
       photoPreview.classList.remove('show');
@@ -260,25 +264,42 @@
 
       if (!sourceFile) {
         photoProcessingPromise = Promise.resolve(null);
+        photoGpsPromise = Promise.resolve(null);
         return;
       }
 
-      photoStatus.textContent = '正在最佳化照片並轉成 WebP…';
+      photoStatus.textContent = '正在讀取照片定位並最佳化 WebP…';
       photoStatus.classList.add('show');
-      photoProcessingPromise = convertToWebP(sourceFile, 1920, 0.82)
+      photoGpsPromise = readPhotoGps(sourceFile).catch(error => {
+        console.warn('照片沒有可讀取的 GPS 資訊:', error);
+        return null;
+      });
+
+      photoProcessingPromise = convertToWebP(sourceFile)
         .then(file => {
           processedPhotoFile = file;
           previewObjectUrl = URL.createObjectURL(file);
           photoPreview.src = previewObjectUrl;
           photoPreview.classList.add('show');
-          photoStatus.textContent = `✓ 已轉成 WebP｜${formatBytes(sourceFile.size)} → ${formatBytes(file.size)}`;
           return file;
         })
         .catch(error => {
+          photoProcessingError = error;
           console.error('WebP 轉換失敗:', error);
           photoStatus.textContent = '無法處理這張照片，請改選 JPG、PNG 或 WebP。';
-          throw error;
+          return null;
         });
+
+      Promise.all([photoProcessingPromise, photoGpsPromise]).then(([file, gps]) => {
+        if (!file) return;
+        const sizeResult = file.size <= sourceFile.size
+          ? `${formatBytes(sourceFile.size)} → ${formatBytes(file.size)}`
+          : `${formatBytes(file.size)}（原檔已非常精簡）`;
+        const gpsResult = gps
+          ? `✓ 已取得照片定位｜${gps.latitude.toFixed(5)}, ${gps.longitude.toFixed(5)}`
+          : '照片沒有 GPS；請填寫景點名稱或地址';
+        photoStatus.innerHTML = `✓ WebP 已最佳化｜${sizeResult}<br>${gpsResult}`;
+      });
     });
 
     // 更新狀態 UI
@@ -327,8 +348,8 @@
       const address = document.getElementById('addressInput').value.trim();
       const sourcePhotoFile = photoInput.files[0];
 
-      if (!address) {
-        alert("請輸入景點名稱或地址！");
+      if (!address && !sourcePhotoFile) {
+        alert("請輸入景點名稱或地址，或選擇一張含有 GPS 定位的照片。");
         return;
       }
 
@@ -338,18 +359,37 @@
 
       try {
         const photoFile = sourcePhotoFile ? await photoProcessingPromise : null;
+        const photoGps = sourcePhotoFile ? await photoGpsPromise : null;
 
-        // A. 地址轉座標 (Geocoding)
-        const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
-        const geoData = await geoRes.json();
+        if (sourcePhotoFile && !photoFile) {
+          throw photoProcessingError || new Error('照片處理失敗');
+        }
 
-        if (!geoData || geoData.length === 0) {
-          alert("找不到該地址！");
+        let lat;
+        let lon;
+        let pinLabel = address || '未命名別針';
+
+        // A. 有填名稱／地址時優先搜尋；留白時改用照片 EXIF GPS。
+        if (address) {
+          btn.innerText = "搜尋景點位置中...";
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+          const geoData = await geoRes.json();
+
+          if (!geoData || geoData.length === 0) {
+            alert("找不到這個景點名稱或地址，請換個關鍵字再試一次。");
+            return;
+          }
+
+          lat = parseFloat(geoData[0].lat);
+          lon = parseFloat(geoData[0].lon);
+        } else if (isValidGps(photoGps)) {
+          lat = photoGps.latitude;
+          lon = photoGps.longitude;
+        } else {
+          alert("這張照片沒有 GPS 定位資訊，請填寫景點名稱或地址。");
           return;
         }
 
-        const lat = parseFloat(geoData[0].lat);
-        const lon = parseFloat(geoData[0].lon);
         let photoPublicUrl = "";
 
         // B. 處理雲端模式
@@ -393,7 +433,7 @@
               'Content-Type': 'application/json',
               'Prefer': 'return=representation'
             },
-            body: JSON.stringify({ address: address, lat: lat, lng: lon, photo_url: photoPublicUrl })
+            body: JSON.stringify({ address: pinLabel, lat: lat, lng: lon, photo_url: photoPublicUrl })
           });
 
           const insertedData = await insertRes.json();
@@ -409,7 +449,7 @@
         } else {
           // 本機保護模式
           if (photoFile) photoPublicUrl = await convertBase64(photoFile);
-          const newPin = { id: Date.now(), address, lat, lng: lon, photo: photoPublicUrl };
+          const newPin = { id: Date.now(), address: pinLabel, lat, lng: lon, photo: photoPublicUrl };
           let pins = JSON.parse(localStorage.getItem('japan_pins')) || [];
           pins.push(newPin);
           localStorage.setItem('japan_pins', JSON.stringify(pins));
@@ -421,6 +461,8 @@
         photoInput.value = '';
         processedPhotoFile = null;
         photoProcessingPromise = Promise.resolve(null);
+        photoGpsPromise = Promise.resolve(null);
+        photoProcessingError = null;
         if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
         previewObjectUrl = '';
         photoPreview.removeAttribute('src');
@@ -504,7 +546,26 @@
       marker.bindPopup(popupDiv);
     }
 
-    async function convertToWebP(file, maxDimension = 1920, quality = 0.82) {
+    async function readPhotoGps(file) {
+      if (!window.exifr || typeof window.exifr.gps !== 'function') return null;
+      const gps = await window.exifr.gps(file);
+      return isValidGps(gps) ? gps : null;
+    }
+
+    function isValidGps(gps) {
+      return Boolean(
+        gps &&
+        Number.isFinite(gps.latitude) &&
+        Number.isFinite(gps.longitude) &&
+        gps.latitude >= -90 && gps.latitude <= 90 &&
+        gps.longitude >= -180 && gps.longitude <= 180
+      );
+    }
+
+    async function convertToWebP(file) {
+      // 已經是 WebP 時保留原檔，避免重新編碼反而變大。
+      if (file.type === 'image/webp') return file;
+
       let imageSource;
       let sourceWidth;
       let sourceHeight;
@@ -519,23 +580,55 @@
         sourceHeight = imageSource.naturalHeight;
       }
 
-      const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.max(1, Math.round(sourceWidth * scale));
-      canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+      // 先以兼顧清晰度的設定輸出；若比原檔大，就逐步降低品質／尺寸。
+      const attempts = [
+        [1600, 0.78],
+        [1600, 0.68],
+        [1280, 0.72],
+        [1280, 0.62],
+        [1080, 0.60],
+        [960, 0.55],
+        [800, 0.50],
+        [640, 0.46]
+      ];
+      let smallestBlob = null;
 
-      const context = canvas.getContext('2d', { alpha: false });
-      context.imageSmoothingEnabled = true;
-      context.imageSmoothingQuality = 'high';
-      context.drawImage(imageSource, 0, 0, canvas.width, canvas.height);
+      for (const [maxDimension, quality] of attempts) {
+        const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+        canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+
+        const context = canvas.getContext('2d', { alpha: false });
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
+        context.drawImage(imageSource, 0, 0, canvas.width, canvas.height);
+
+        const candidate = await canvasToWebP(canvas, quality);
+        if (!smallestBlob || candidate.size < smallestBlob.size) smallestBlob = candidate;
+
+        // 至少節省約 5%，才停止嘗試後續壓縮設定。
+        if (candidate.size <= file.size * 0.95) {
+          smallestBlob = candidate;
+          break;
+        }
+      }
+
       if (imageSource.close) imageSource.close();
-
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob(result => result ? resolve(result) : reject(new Error('瀏覽器無法輸出 WebP')), 'image/webp', quality);
-      });
+      if (!smallestBlob) throw new Error('瀏覽器無法輸出 WebP');
 
       const baseName = file.name.replace(/\.[^.]+$/, '') || 'pin-photo';
-      return new File([blob], `${baseName}.webp`, { type: 'image/webp', lastModified: Date.now() });
+      return new File([smallestBlob], `${baseName}.webp`, { type: 'image/webp', lastModified: Date.now() });
+    }
+
+    function canvasToWebP(canvas, quality) {
+      return new Promise((resolve, reject) => {
+        canvas.toBlob(
+          result => result ? resolve(result) : reject(new Error('瀏覽器無法輸出 WebP')),
+          'image/webp',
+          quality
+        );
+      });
     }
 
     function loadImage(file) {
