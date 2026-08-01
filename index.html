@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="robots" content="noindex, nofollow">
   <title>日本景點別針收藏地圖</title>
   
   <!-- 強制放行地圖圖片與 Supabase 請求，防止 Cloudflare CSP 阻擋 -->
@@ -13,76 +12,105 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
   <style>
+    :root {
+      --ink: #101214;
+      --panel: rgba(20, 22, 24, 0.94);
+      --panel-soft: #24272a;
+      --line: rgba(255, 255, 255, 0.14);
+      --text: #f6f4ef;
+      --muted: #aaa9a4;
+      --accent: #ff4438;
+      --accent-dark: #d92f28;
+    }
     html, body {
       height: 100% !important;
       width: 100% !important;
       margin: 0;
       padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--ink);
     }
     body { display: flex; overflow: hidden; }
 
     #sidebar {
       width: 320px;
       min-width: 320px;
-      padding: 20px;
-      background-color: #f8f9fa;
-      box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+      padding: 28px 24px;
+      color: var(--text);
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      box-shadow: 18px 0 50px rgba(0,0,0,0.28);
       z-index: 1000;
       display: flex; 
       flex-direction: column; 
-      gap: 15px; 
+      gap: 18px;
       overflow-y: auto;
       box-sizing: border-box;
     }
-    h2 { margin-top: 0; color: #2c3e50; font-size: 1.25rem; }
-    .form-group { display: flex; flex-direction: column; gap: 5px; }
-    label { font-size: 0.9rem; font-weight: bold; color: #495057; }
+    h2 { margin: 0; color: var(--text); font-size: 1.25rem; letter-spacing: .02em; }
+    .eyebrow { color: var(--accent); font-size: .68rem; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; }
+    .sidebar-copy { margin: -8px 0 2px; color: var(--muted); font-size: .82rem; line-height: 1.55; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    label { font-size: 0.75rem; font-weight: 800; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
     input[type="text"], input[type="file"] {
-      padding: 8px 10px; border: 1px solid #ced4da; border-radius: 6px; width: 100%; box-sizing: border-box;
+      padding: 12px 13px; border: 1px solid var(--line); border-radius: 4px; width: 100%; box-sizing: border-box;
+      color: var(--text); background: var(--panel-soft); outline: none;
     }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,68,56,.15); }
+    input[type="file"] { color: var(--muted); font-size: .78rem; }
+    input[type="file"]::file-selector-button { margin-right: 10px; padding: 7px 10px; border: 0; border-radius: 3px; color: #fff; background: #45494d; cursor: pointer; }
     button {
-      padding: 10px; background-color: #d9534f; color: white; border: none;
-      border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%;
+      padding: 12px; background: var(--accent); color: white; border: none;
+      border-radius: 4px; cursor: pointer; font-weight: 800; letter-spacing: .03em; width: 100%;
     }
-    button:hover { background-color: #c9302c; }
+    button:hover { background: var(--accent-dark); }
+    button:disabled { opacity: .58; cursor: wait; }
 
     #map { 
       flex: 1; 
       height: 100vh !important; 
       width: 100% !important; 
-      background-color: #f0f0f0; 
+      background-color: #242628;
     }
 
-    .popup-card { text-align: center; max-width: 200px; }
-    .popup-card h4 { margin: 5px 0 8px 0; color: #333; }
-    .popup-card img { width: 100%; height: auto; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-    .delete-btn { margin-top: 8px; background-color: #6c757d; padding: 4px 8px; font-size: 0.75rem; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: #1d1f21; color: var(--text); }
+    .leaflet-popup-content-wrapper { border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 14px 36px rgba(0,0,0,.42); }
+    .leaflet-popup-close-button { color: #fff !important; }
+    .popup-card { text-align: left; width: 210px; }
+    .popup-card h4 { margin: 2px 0 9px; color: var(--text); font-size: 1rem; }
+    .popup-card img { width: 100%; max-height: 210px; object-fit: cover; border-radius: 3px; box-shadow: 0 5px 18px rgba(0,0,0,.35); }
+    .popup-coords { margin: 8px 0 0; color: var(--muted); font-size: .7rem; letter-spacing: .04em; }
+    .delete-btn { margin-top: 10px; background: #3a3d40; padding: 7px 9px; font-size: 0.72rem; }
+    .pin-marker { width: 22px; height: 22px; box-sizing: border-box; border: 4px solid rgba(255,255,255,.92); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 5px rgba(255,68,56,.25), 0 4px 14px rgba(0,0,0,.55); }
     
     .status-badge {
       font-size: 0.8rem;
       padding: 8px 10px;
-      border-radius: 6px;
+      border-radius: 4px;
       margin-top: 5px;
     }
-    .status-cloud { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-    .status-local { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+    .status-cloud { background: rgba(54,179,126,.11); color: #83e0b2; border: 1px solid rgba(83,214,151,.25); }
+    .status-local { background: rgba(255,190,77,.10); color: #ffd27d; border: 1px solid rgba(255,190,77,.24); }
+    .photo-status { display: none; padding: 10px; border-left: 3px solid var(--accent); color: var(--muted); background: rgba(255,255,255,.04); font-size: .76rem; line-height: 1.45; }
+    .photo-status.show { display: block; }
+    .photo-preview { display: none; width: 100%; max-height: 180px; object-fit: cover; border-radius: 4px; border: 1px solid var(--line); }
+    .photo-preview.show { display: block; }
 
     /* 手機版選單開關按鈕（預設隱藏，只在小螢幕顯示） */
     #menuToggleBtn {
       display: none;
-      position: absolute;
+      position: fixed;
       top: 15px;
       left: 15px;
       z-index: 1100;
       width: 44px;
       height: 44px;
       padding: 0;
-      background-color: #ffffff;
-      color: #2c3e50;
+      background: rgba(20,22,24,.92);
+      color: #fff;
       border: none;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      border-radius: 50%;
+      box-shadow: 0 5px 18px rgba(0,0,0,0.4);
       font-size: 1.3rem;
       cursor: pointer;
       align-items: center;
@@ -110,7 +138,10 @@
         height: 100%;
         transform: translateX(-100%);
         transition: transform 0.25s ease-in-out;
-        box-shadow: 4px 0 12px rgba(0,0,0,0.2);
+        width: min(86vw, 340px);
+        min-width: 0;
+        padding-top: 76px;
+        box-shadow: 16px 0 40px rgba(0,0,0,0.45);
       }
 
       #sidebar.open {
@@ -124,6 +155,8 @@
       #map {
         width: 100% !important;
       }
+
+      .leaflet-control-zoom { margin-right: 14px !important; margin-bottom: calc(14px + env(safe-area-inset-bottom)) !important; }
     }
   </style>
 </head>
@@ -132,7 +165,9 @@
   <button id="menuToggleBtn" aria-label="開啟選單">☰</button>
 
   <div id="sidebar">
-    <h2>📍 日本別針收藏地圖</h2>
+    <div class="eyebrow">Pin collector / Japan</div>
+    <h2>日本別針收藏地圖</h2>
+    <p class="sidebar-copy">把旅途中收藏的徽章，留在它真正屬於的位置。</p>
     
     <div class="form-group">
       <label for="addressInput">景點名稱或地址：</label>
@@ -141,10 +176,12 @@
 
     <div class="form-group">
       <label for="photoInput">上傳別針照片：</label>
-      <input type="file" id="photoInput" accept="image/*" />
+      <input type="file" id="photoInput" accept="image/jpeg,image/png,image/webp" />
+      <img id="photoPreview" class="photo-preview" alt="照片預覽" />
+      <div id="photoStatus" class="photo-status" aria-live="polite"></div>
     </div>
 
-    <button id="addPinBtn">搜尋並上傳至雲端</button>
+    <button id="addPinBtn">儲存別針</button>
 
     <div id="statusNotice" class="status-badge status-local">檢查雲端連線中...</div>
   </div>
@@ -166,15 +203,19 @@
 
     const isCloudConfigured = SUPABASE_URL.startsWith('https://') && !SUPABASE_URL.includes('xxxxxx');
 
-    // 1. 初始化 Leaflet 地圖 (Esri 底圖，安定性最高)
+    // 1. 初始化 Leaflet 地圖（深色地形風格，放大縮小移到右下，避免手機選單遮擋）
     const map = L.map('map', {
       center: [36.2048, 138.2529],
-      zoom: 6
+      zoom: 6,
+      zoomControl: false
     });
 
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Tiles &copy; Esri',
-      maxZoom: 18
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap &copy; CARTO',
+      subdomains: 'abcd',
+      maxZoom: 20
     }).addTo(map);
 
     window.addEventListener('load', () => {
@@ -200,6 +241,45 @@
       sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar();
     });
     sidebarOverlay.addEventListener('click', closeSidebar);
+
+    // 選取照片後，先在手機／瀏覽器端縮圖並轉成 WebP，再交給上傳流程。
+    const photoInput = document.getElementById('photoInput');
+    const photoPreview = document.getElementById('photoPreview');
+    const photoStatus = document.getElementById('photoStatus');
+    let processedPhotoFile = null;
+    let photoProcessingPromise = Promise.resolve(null);
+    let previewObjectUrl = '';
+
+    photoInput.addEventListener('change', () => {
+      const sourceFile = photoInput.files[0];
+      processedPhotoFile = null;
+
+      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+      photoPreview.classList.remove('show');
+      photoStatus.classList.remove('show');
+
+      if (!sourceFile) {
+        photoProcessingPromise = Promise.resolve(null);
+        return;
+      }
+
+      photoStatus.textContent = '正在最佳化照片並轉成 WebP…';
+      photoStatus.classList.add('show');
+      photoProcessingPromise = convertToWebP(sourceFile, 1920, 0.82)
+        .then(file => {
+          processedPhotoFile = file;
+          previewObjectUrl = URL.createObjectURL(file);
+          photoPreview.src = previewObjectUrl;
+          photoPreview.classList.add('show');
+          photoStatus.textContent = `✓ 已轉成 WebP｜${formatBytes(sourceFile.size)} → ${formatBytes(file.size)}`;
+          return file;
+        })
+        .catch(error => {
+          console.error('WebP 轉換失敗:', error);
+          photoStatus.textContent = '無法處理這張照片，請改選 JPG、PNG 或 WebP。';
+          throw error;
+        });
+    });
 
     // 更新狀態 UI
     const noticeDiv = document.getElementById('statusNotice');
@@ -245,7 +325,7 @@
     // 3. 新增 Pin
     document.getElementById('addPinBtn').addEventListener('click', async () => {
       const address = document.getElementById('addressInput').value.trim();
-      const photoFile = document.getElementById('photoInput').files[0];
+      const sourcePhotoFile = photoInput.files[0];
 
       if (!address) {
         alert("請輸入景點名稱或地址！");
@@ -257,6 +337,8 @@
       btn.disabled = true;
 
       try {
+        const photoFile = sourcePhotoFile ? await photoProcessingPromise : null;
+
         // A. 地址轉座標 (Geocoding)
         const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
         const geoData = await geoRes.json();
@@ -275,17 +357,14 @@
           // B1. 上傳相片到 Supabase Storage
           if (photoFile) {
             btn.innerText = "照片上傳雲端中...";
-            // 只取副檔名，避免原始檔名含中文、空白等字元導致 Supabase 拒絕（Invalid key）
-            const extMatch = photoFile.name.match(/\.[0-9a-zA-Z]+$/);
-            const ext = extMatch ? extMatch[0] : '.jpg';
-            const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+            const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.webp`;
             
             const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/pin-photos/${fileName}`, {
               method: 'POST',
               headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
-                'Content-Type': photoFile.type
+                'Content-Type': 'image/webp'
               },
               body: photoFile
             });
@@ -339,7 +418,14 @@
         }
 
         document.getElementById('addressInput').value = '';
-        document.getElementById('photoInput').value = '';
+        photoInput.value = '';
+        processedPhotoFile = null;
+        photoProcessingPromise = Promise.resolve(null);
+        if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+        previewObjectUrl = '';
+        photoPreview.removeAttribute('src');
+        photoPreview.classList.remove('show');
+        photoStatus.classList.remove('show');
 
         // 手機版：新增成功後自動收合選單，方便看到剛新增的地圖標記
         if (window.innerWidth <= 768) closeSidebar();
@@ -348,14 +434,21 @@
         console.error(err);
         alert(`錯誤: ${err.message || '連線失敗'}`);
       } finally {
-        btn.innerText = "搜尋並上傳至雲端";
+        btn.innerText = "儲存別針";
         btn.disabled = false;
       }
     });
 
     // 渲染 Pin
     function renderMarker(pin) {
-      const marker = L.marker([pin.lat, pin.lng]).addTo(map);
+      const pinIcon = L.divIcon({
+        className: '',
+        html: '<div class="pin-marker" aria-hidden="true"></div>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+        popupAnchor: [0, -15]
+      });
+      const marker = L.marker([pin.lat, pin.lng], { icon: pinIcon, title: pin.address }).addTo(map);
       const popupDiv = document.createElement('div');
       popupDiv.className = 'popup-card';
       
@@ -366,7 +459,7 @@
       popupDiv.innerHTML = `
         <h4>${pin.address}</h4>
         ${photoHTML}
-        <br>
+        <p class="popup-coords">${Number(pin.lat).toFixed(5)}, ${Number(pin.lng).toFixed(5)}</p>
         <button class="delete-btn">刪除此別針</button>
       `;
 
@@ -409,6 +502,56 @@
       });
 
       marker.bindPopup(popupDiv);
+    }
+
+    async function convertToWebP(file, maxDimension = 1920, quality = 0.82) {
+      let imageSource;
+      let sourceWidth;
+      let sourceHeight;
+
+      if ('createImageBitmap' in window) {
+        imageSource = await createImageBitmap(file);
+        sourceWidth = imageSource.width;
+        sourceHeight = imageSource.height;
+      } else {
+        imageSource = await loadImage(file);
+        sourceWidth = imageSource.naturalWidth;
+        sourceHeight = imageSource.naturalHeight;
+      }
+
+      const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+      canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+
+      const context = canvas.getContext('2d', { alpha: false });
+      context.imageSmoothingEnabled = true;
+      context.imageSmoothingQuality = 'high';
+      context.drawImage(imageSource, 0, 0, canvas.width, canvas.height);
+      if (imageSource.close) imageSource.close();
+
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob(result => result ? resolve(result) : reject(new Error('瀏覽器無法輸出 WebP')), 'image/webp', quality);
+      });
+
+      const baseName = file.name.replace(/\.[^.]+$/, '') || 'pin-photo';
+      return new File([blob], `${baseName}.webp`, { type: 'image/webp', lastModified: Date.now() });
+    }
+
+    function loadImage(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => { URL.revokeObjectURL(url); resolve(image); };
+        image.onerror = () => { URL.revokeObjectURL(url); reject(new Error('照片讀取失敗')); };
+        image.src = url;
+      });
+    }
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+      if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
     }
 
     function convertBase64(file) {
